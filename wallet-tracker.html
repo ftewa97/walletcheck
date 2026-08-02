@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wallet Tracker</title>
+<style>
+  :root{
+    --paper:#F3EDE0;
+    --paper-line:#DCD2B8;
+    --ink:#1F3D2E;
+    --ink-soft:#5C6E63;
+    --gold:#B8952F;
+    --rust:#A6402E;
+    --card-shadow: 0 12px 30px -12px rgba(31,61,46,0.35);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); font-family:"Helvetica Neue", Arial, sans-serif;
+    color:var(--ink); padding:32px 16px 60px; display:flex; justify-content:center;
+  }
+  .app{ width:100%; max-width:440px; }
+  .eyebrow{
+    font-size:12px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--ink-soft); margin:0 0 6px 4px;
+  }
+  .wallet-card{
+    background:var(--ink); color:var(--paper);
+    border-radius:18px 18px 0 0; padding:28px 26px 34px;
+    box-shadow:var(--card-shadow); position:relative;
+  }
+  .wallet-card .label{
+    font-size:12px; letter-spacing:0.12em; text-transform:uppercase;
+    color:#C9D6CC; margin:0 0 8px;
+  }
+  .wallet-card .balance{
+    font-family:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+    font-size:44px; margin:0; line-height:1;
+  }
+  .wallet-card .balance span{ font-size:22px; opacity:0.7; margin-right:4px; }
+  .tear{
+    height:14px; background:var(--ink);
+    clip-path: polygon(
+      0% 0%, 100% 0%, 100% 100%,
+      95% 40%, 90% 100%, 85% 40%, 80% 100%,
+      75% 40%, 70% 100%, 65% 40%, 60% 100%,
+      55% 40%, 50% 100%, 45% 40%, 40% 100%,
+      35% 40%, 30% 100%, 25% 40%, 20% 100%,
+      15% 40%, 10% 100%, 5% 40%, 0% 100%
+    );
+    margin-bottom:18px;
+  }
+  .actions{ display:flex; gap:10px; margin-bottom:16px; }
+  button.action{
+    flex:1; border:none; border-radius:10px; padding:12px 10px;
+    font-size:14px; font-weight:600; cursor:pointer; letter-spacing:0.01em;
+    transition:transform 0.08s ease, opacity 0.15s ease;
+  }
+  button.action:active{transform:scale(0.97);}
+  .btn-topup{background:var(--gold); color:var(--ink);}
+  .btn-expense{background:transparent; color:var(--rust); border:1.5px solid var(--rust);}
+
+  .fixed-box{
+    background:#fff; border:1px solid var(--paper-line); border-radius:12px;
+    padding:12px 14px; margin-bottom:16px; display:none;
+  }
+  .fixed-box.has-items{display:block;}
+  .fixed-box h4{
+    margin:0 0 8px; font-size:11px; text-transform:uppercase;
+    letter-spacing:0.1em; color:var(--ink-soft);
+  }
+  .fixed-item{
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:13px; padding:6px 0; border-bottom:1px dashed var(--paper-line);
+  }
+  .fixed-item:last-child{border-bottom:none;}
+  .fixed-item .stop-btn{
+    background:none; border:none; color:var(--ink-soft);
+    font-size:11px; text-decoration:underline; cursor:pointer; padding:0;
+  }
+
+  .panel{
+    background:#fff; border:1px solid var(--paper-line); border-radius:12px;
+    padding:16px; margin-bottom:22px; display:none;
+  }
+  .panel.open{display:block;}
+  .panel h3{
+    margin:0 0 12px; font-size:13px; text-transform:uppercase;
+    letter-spacing:0.1em; color:var(--ink-soft);
+  }
+  .panel input, .panel select{
+    width:100%; padding:10px 12px; border:1px solid var(--paper-line);
+    border-radius:8px; font-size:14px; margin-bottom:10px;
+    font-family:inherit; background:var(--paper); color:var(--ink);
+  }
+  .check-row{
+    display:flex; align-items:center; gap:8px; margin-bottom:12px;
+    font-size:13px; color:var(--ink-soft);
+  }
+  .check-row input{ width:auto; margin:0; }
+  .day-row{ display:none; margin-bottom:12px; }
+  .day-row.show{ display:block; }
+  .day-row label{
+    display:block; font-size:12px; color:var(--ink-soft); margin-bottom:6px;
+  }
+  .panel .row{display:flex; gap:8px;}
+  .panel .row button{ flex:1; }
+  .btn-confirm{background:var(--ink); color:var(--paper); border:none; border-radius:8px; padding:10px; font-size:13px; font-weight:600; cursor:pointer;}
+  .btn-cancel{background:transparent; color:var(--ink-soft); border:1px solid var(--paper-line); border-radius:8px; padding:10px; font-size:13px; cursor:pointer;}
+
+  .ledger-title{
+    font-size:12px; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--ink-soft); margin:0 0 10px 4px;
+  }
+  .ledger{ list-style:none; margin:0; padding:0; }
+  .ledger li{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 4px; border-bottom:1px dashed var(--paper-line); gap:8px;
+  }
+  .ledger li:last-child{border-bottom:none;}
+  .tx-info{flex:1; min-width:0;}
+  .tx-info .tx-note{font-size:14px; font-weight:600; display:flex; align-items:center; gap:6px;}
+  .tx-info .tx-meta{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .tag-fixed{
+    font-size:10px; text-transform:uppercase; letter-spacing:0.06em;
+    background:var(--gold); color:var(--ink); padding:1px 6px; border-radius:5px;
+  }
+  .tx-right{ display:flex; align-items:center; gap:10px; }
+  .tx-amount{
+    font-family:"SFMono-Regular", Menlo, Consolas, monospace;
+    font-size:14px; font-weight:600; white-space:nowrap;
+  }
+  .tx-amount.in{color:#2E6B4A;}
+  .tx-amount.out{color:var(--rust);}
+  .tx-actions{ display:flex; gap:6px; }
+  .icon-btn{
+    background:none; border:none; cursor:pointer; font-size:13px;
+    color:var(--ink-soft); padding:2px 4px; line-height:1;
+  }
+  .icon-btn:hover{color:var(--ink);}
+  .empty{ text-align:center; color:var(--ink-soft); font-size:13px; padding:24px 0; }
+  .storage-warning{
+    display:none; background:#FBEFE0; border:1px solid var(--gold);
+    color:var(--ink); font-size:12px; border-radius:8px; padding:8px 12px;
+    margin-bottom:14px; line-height:1.4;
+  }
+  .storage-warning.show{ display:block; }
+</style>
+</head>
+<body>
+<div class="app">
+  <p class="eyebrow">My Wallet</p>
+  <div class="storage-warning" id="storageWarning">Changes aren't syncing to saved storage right now, so they'll only last for this session. Retrying automatically — your data stays safe here in the meantime.</div>
+  <div class="wallet-card">
+    <p class="label">Current balance</p>
+    <p class="balance"><span>EGP</span><span id="balanceValue">0.00</span></p>
+  </div>
+  <div class="tear"></div>
+
+  <div class="actions">
+    <button class="action btn-topup" id="openTopup">+ Top up</button>
+    <button class="action btn-expense" id="openExpense">– Add spending</button>
+  </div>
+
+  <div class="fixed-box" id="fixedBox">
+    <h4>Fixed monthly items</h4>
+    <div id="fixedList"></div>
+  </div>
+
+  <div class="panel" id="topupPanel">
+    <h3 id="topupTitle">Top up wallet</h3>
+    <input type="number" id="topupAmount" placeholder="Amount" min="0" step="0.01">
+    <input type="text" id="topupNote" placeholder="Source (e.g. Salary, Gift)">
+    <label class="check-row"><input type="checkbox" id="topupFixed"> Repeat monthly (fixed, like salary)</label>
+    <div class="day-row" id="topupDayRow">
+      <label for="topupDay">Which day of the month does it land?</label>
+      <input type="number" id="topupDay" min="1" max="31" placeholder="e.g. 1 or 27">
+    </div>
+    <div class="row">
+      <button class="btn-confirm" id="confirmTopup">Save</button>
+      <button class="btn-cancel" id="cancelTopup">Cancel</button>
+    </div>
+  </div>
+
+  <div class="panel" id="expensePanel">
+    <h3 id="expenseTitle">Log a spending</h3>
+    <input type="number" id="expenseAmount" placeholder="Amount" min="0" step="0.01">
+    <input type="text" id="expenseNote" placeholder="What was it for?">
+    <select id="expenseCategory">
+      <option>Food</option>
+      <option>Transport</option>
+      <option>Shopping</option>
+      <option>Bills</option>
+      <option>Other</option>
+    </select>
+    <label class="check-row"><input type="checkbox" id="expenseFixed"> Repeat monthly (fixed, like rent)</label>
+    <div class="day-row" id="expenseDayRow">
+      <label for="expenseDay">Which day of the month is it due?</label>
+      <input type="number" id="expenseDay" min="1" max="31" placeholder="e.g. 1 or 27">
+    </div>
+    <div class="row">
+      <button class="btn-confirm" id="confirmExpense">Save</button>
+      <button class="btn-cancel" id="cancelExpense">Cancel</button>
+    </div>
+  </div>
+
+  <p class="ledger-title">Recent activity</p>
+  <ul class="ledger" id="ledgerList"></ul>
+  <p class="empty" id="emptyState">No activity yet — top up to get started.</p>
+</div>
+
+<script>
+  let data = { balance: 0, transactions: [], templates: [] };
+  let editingId = null;
+  const STORAGE_KEY = 'wallet-tracker-state';
+
+  const balanceValue = document.getElementById('balanceValue');
+  const ledgerList = document.getElementById('ledgerList');
+  const emptyState = document.getElementById('emptyState');
+  const fixedBox = document.getElementById('fixedBox');
+  const fixedList = document.getElementById('fixedList');
+  const topupPanel = document.getElementById('topupPanel');
+  const expensePanel = document.getElementById('expensePanel');
+  const topupFixed = document.getElementById('topupFixed');
+  const expenseFixed = document.getElementById('expenseFixed');
+  const topupDayRow = document.getElementById('topupDayRow');
+  const expenseDayRow = document.getElementById('expenseDayRow');
+
+  topupFixed.onchange = () => topupDayRow.classList.toggle('show', topupFixed.checked);
+  expenseFixed.onchange = () => expenseDayRow.classList.toggle('show', expenseFixed.checked);
+
+  function monthKey(d = new Date()){
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  }
+  function daysInMonth(year, monthIndex){
+    return new Date(year, monthIndex + 1, 0).getDate();
+  }
+  function formatDate(d = new Date()){
+    return d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+  }
+  function newId(){
+    return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  }
+
+  const storageWarning = document.getElementById('storageWarning');
+
+  function save(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      storageWarning.classList.remove('show');
+    }catch(e){
+      console.error('Save failed', e);
+      storageWarning.classList.add('show');
+    }
+  }
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){ data = JSON.parse(raw); }
+    }catch(e){ /* no saved data yet, that's fine */ }
+    applyDueRecurring();
+    render();
+  }
+
+  // Applies a fixed template for the current month once its chosen day has arrived
+  function applyDueRecurring(){
+    const now = new Date();
+    const thisMonth = monthKey(now);
+    let changed = false;
+    data.templates.forEach(t => {
+      if(t.lastAppliedMonth === thisMonth) return;
+      const targetDay = Math.min(t.dayOfMonth || 1, daysInMonth(now.getFullYear(), now.getMonth()));
+      if(now.getDate() >= targetDay){
+        const txDate = new Date(now.getFullYear(), now.getMonth(), targetDay);
+        const tx = {
+          id: newId(), type: t.type, amount: t.amount, note: t.note,
+          category: t.category, date: formatDate(txDate), kind: 'fixed', templateId: t.id
+        };
+        data.transactions.push(tx);
+        data.balance += t.type === 'in' ? t.amount : -t.amount;
+        t.lastAppliedMonth = thisMonth;
+        changed = true;
+      }
+    });
+    if(changed) save();
+  }
+
+  function openPanel(panel, other){
+    other.classList.remove('open');
+    panel.classList.toggle('open');
+  }
+  document.getElementById('openTopup').onclick = () => { resetTopupForm(); openPanel(topupPanel, expensePanel); };
+  document.getElementById('openExpense').onclick = () => { resetExpenseForm(); openPanel(expensePanel, topupPanel); };
+  document.getElementById('cancelTopup').onclick = () => { topupPanel.classList.remove('open'); resetTopupForm(); };
+  document.getElementById('cancelExpense').onclick = () => { expensePanel.classList.remove('open'); resetExpenseForm(); };
+
+  function resetTopupForm(){
+    editingId = null;
+    document.getElementById('topupTitle').textContent = 'Top up wallet';
+    document.getElementById('topupAmount').value = '';
+    document.getElementById('topupNote').value = '';
+    topupFixed.checked = false;
+    document.getElementById('topupDay').value = '';
+    topupDayRow.classList.remove('show');
+  }
+  function resetExpenseForm(){
+    editingId = null;
+    document.getElementById('expenseTitle').textContent = 'Log a spending';
+    document.getElementById('expenseAmount').value = '';
+    document.getElementById('expenseNote').value = '';
+    document.getElementById('expenseCategory').value = 'Food';
+    expenseFixed.checked = false;
+    document.getElementById('expenseDay').value = '';
+    expenseDayRow.classList.remove('show');
+  }
+
+  function ordinal(n){
+    const s = ['th','st','nd','rd'], v = n % 100;
+    return n + (s[(v-20)%10] || s[v] || s[0]);
+  }
+
+  function render(){
+    balanceValue.textContent = data.balance.toFixed(2);
+
+    if(data.templates.length){
+      fixedBox.classList.add('has-items');
+      fixedList.innerHTML = data.templates.map(t => `
+        <div class="fixed-item">
+          <span>${t.note} — ${t.type === 'in' ? '+' : '−'}${t.amount.toFixed(2)}/mo on the ${ordinal(t.dayOfMonth || 1)}</span>
+          <button class="stop-btn" data-tid="${t.id}">stop</button>
+        </div>
+      `).join('');
+      fixedList.querySelectorAll('.stop-btn').forEach(btn => {
+        btn.onclick = () => stopTemplate(btn.dataset.tid);
+      });
+    }else{
+      fixedBox.classList.remove('has-items');
+      fixedList.innerHTML = '';
+    }
+
+    ledgerList.innerHTML = '';
+    if(data.transactions.length === 0){
+      emptyState.style.display = 'block';
+      return;
+    }
+    emptyState.style.display = 'none';
+    data.transactions.slice().reverse().forEach(tx => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <div class="tx-info">
+          <div class="tx-note">${tx.note} ${tx.kind === 'fixed' ? '<span class="tag-fixed">fixed</span>' : ''}</div>
+          <div class="tx-meta">${tx.category} · ${tx.date}</div>
+        </div>
+        <div class="tx-right">
+          <div class="tx-amount ${tx.type === 'in' ? 'in' : 'out'}">${tx.type === 'in' ? '+' : '−'} ${tx.amount.toFixed(2)}</div>
+          <div class="tx-actions">
+            <button class="icon-btn" data-edit="${tx.id}" title="Edit">✎</button>
+            <button class="icon-btn" data-del="${tx.id}" title="Delete">✕</button>
+          </div>
+        </div>
+      `;
+      ledgerList.appendChild(li);
+    });
+    ledgerList.querySelectorAll('[data-edit]').forEach(btn => { btn.onclick = () => editTransaction(btn.dataset.edit); });
+    ledgerList.querySelectorAll('[data-del]').forEach(btn => { btn.onclick = () => deleteTransaction(btn.dataset.del); });
+  }
+
+  function stopTemplate(id){
+    data.templates = data.templates.filter(t => t.id !== id);
+    save();
+    render();
+  }
+
+  function editTransaction(id){
+    const tx = data.transactions.find(t => t.id === id);
+    if(!tx) return;
+    editingId = id;
+    const tpl = tx.templateId ? data.templates.find(t => t.id === tx.templateId) : null;
+    if(tx.type === 'in'){
+      document.getElementById('topupTitle').textContent = 'Edit top up';
+      document.getElementById('topupAmount').value = tx.amount;
+      document.getElementById('topupNote').value = tx.note;
+      topupFixed.checked = tx.kind === 'fixed';
+      document.getElementById('topupDay').value = tpl ? tpl.dayOfMonth : '';
+      topupDayRow.classList.toggle('show', tx.kind === 'fixed');
+      openPanel(topupPanel, expensePanel);
+    }else{
+      document.getElementById('expenseTitle').textContent = 'Edit spending';
+      document.getElementById('expenseAmount').value = tx.amount;
+      document.getElementById('expenseNote').value = tx.note;
+      document.getElementById('expenseCategory').value = tx.category;
+      expenseFixed.checked = tx.kind === 'fixed';
+      document.getElementById('expenseDay').value = tpl ? tpl.dayOfMonth : '';
+      expenseDayRow.classList.toggle('show', tx.kind === 'fixed');
+      openPanel(expensePanel, topupPanel);
+    }
+  }
+
+  function deleteTransaction(id){
+    const idx = data.transactions.findIndex(t => t.id === id);
+    if(idx === -1) return;
+    const tx = data.transactions[idx];
+    data.balance += tx.type === 'in' ? -tx.amount : tx.amount;
+    data.transactions.splice(idx, 1);
+    save();
+    render();
+  }
+
+  document.getElementById('confirmTopup').onclick = () => {
+    const amt = parseFloat(document.getElementById('topupAmount').value);
+    const note = document.getElementById('topupNote').value.trim() || 'Top up';
+    const isFixed = topupFixed.checked;
+    let day = parseInt(document.getElementById('topupDay').value, 10);
+    if(isFixed && (!day || day < 1 || day > 31)) day = 1;
+    if(!amt || amt <= 0) return;
+
+    if(editingId){
+      const tx = data.transactions.find(t => t.id === editingId);
+      data.balance -= tx.amount;
+      tx.amount = amt; tx.note = note; tx.kind = isFixed ? 'fixed' : 'variable';
+      data.balance += amt;
+      if(isFixed && tx.templateId){
+        const tpl = data.templates.find(t => t.id === tx.templateId);
+        if(tpl){ tpl.amount = amt; tpl.note = note; tpl.dayOfMonth = day; }
+      }else if(isFixed && !tx.templateId){
+        const tpl = { id:newId(), type:'in', amount:amt, note, category:'Income', dayOfMonth: day, lastAppliedMonth: monthKey() };
+        data.templates.push(tpl);
+        tx.templateId = tpl.id;
+      }
+    }else{
+      const tx = { id:newId(), type:'in', amount:amt, note, category:'Income', date:formatDate(), kind: isFixed ? 'fixed' : 'variable' };
+      if(isFixed){
+        const tpl = { id:newId(), type:'in', amount:amt, note, category:'Income', dayOfMonth: day, lastAppliedMonth: monthKey() };
+        data.templates.push(tpl);
+        tx.templateId = tpl.id;
+      }
+      data.transactions.push(tx);
+      data.balance += amt;
+    }
+    resetTopupForm();
+    topupPanel.classList.remove('open');
+    save();
+    render();
+  };
+
+  document.getElementById('confirmExpense').onclick = () => {
+    const amt = parseFloat(document.getElementById('expenseAmount').value);
+    const note = document.getElementById('expenseNote').value.trim() || 'Spending';
+    const category = document.getElementById('expenseCategory').value;
+    const isFixed = expenseFixed.checked;
+    let day = parseInt(document.getElementById('expenseDay').value, 10);
+    if(isFixed && (!day || day < 1 || day > 31)) day = 1;
+    if(!amt || amt <= 0) return;
+
+    if(editingId){
+      const tx = data.transactions.find(t => t.id === editingId);
+      data.balance += tx.amount;
+      tx.amount = amt; tx.note = note; tx.category = category; tx.kind = isFixed ? 'fixed' : 'variable';
+      data.balance -= amt;
+      if(isFixed && tx.templateId){
+        const tpl = data.templates.find(t => t.id === tx.templateId);
+        if(tpl){ tpl.amount = amt; tpl.note = note; tpl.category = category; tpl.dayOfMonth = day; }
+      }else if(isFixed && !tx.templateId){
+        const tpl = { id:newId(), type:'out', amount:amt, note, category, dayOfMonth: day, lastAppliedMonth: monthKey() };
+        data.templates.push(tpl);
+        tx.templateId = tpl.id;
+      }
+    }else{
+      const tx = { id:newId(), type:'out', amount:amt, note, category, date:formatDate(), kind: isFixed ? 'fixed' : 'variable' };
+      if(isFixed){
+        const tpl = { id:newId(), type:'out', amount:amt, note, category, dayOfMonth: day, lastAppliedMonth: monthKey() };
+        data.templates.push(tpl);
+        tx.templateId = tpl.id;
+      }
+      data.transactions.push(tx);
+      data.balance -= amt;
+    }
+    resetExpenseForm();
+    expensePanel.classList.remove('open');
+    save();
+    render();
+  };
+
+  load();
+</script>
+</body>
+</html>
